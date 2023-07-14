@@ -4,15 +4,16 @@ package student
 
 import (
 	"context"
+	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/cloudwego/hertz/pkg/common/adaptor"
 	"github.com/cloudwego/hertz/pkg/common/utils"
+	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/cloudwego/kitex/client"
+	"github.com/cloudwego/kitex/client/genericclient"
 	"github.com/cloudwego/kitex/pkg/connpool"
+	"github.com/cloudwego/kitex/pkg/generic"
 	"student/hz/biz/model/student"
 	student2 "student/kitex/kitex_gen/student"
-	"student/kitex/kitex_gen/student/studentservice"
-
-	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 )
 
 // Register .
@@ -31,11 +32,23 @@ func Register(ctx context.Context, c *app.RequestContext) {
 	opts = append(opts, client.WithLongConnection(connpool.IdleConfig{MinIdlePerAddress: 10,
 		MaxIdlePerAddress: 1000}))
 
-	client := studentservice.MustNewClient("StudentService", opts...)
-	resp, err := client.Register(ctx, &req)
-	//resp := new(student.RegisterResp)
-
-	c.JSON(consts.StatusOK, resp)
+	p, err := generic.NewThriftFileProvider("../student.thrift")
+	if err != nil {
+		c.JSON(consts.StatusOK, utils.H{"Message": err.Error()})
+	}
+	g, err := generic.HTTPThriftGeneric(p)
+	if err != nil {
+		c.JSON(consts.StatusOK, utils.H{"Message": err.Error()})
+	}
+	client, err := genericclient.NewClient("StudentService", g, opts...)
+	x := c.GetRequest()
+	y, _ := adaptor.GetCompatRequest(x)
+	z, _ := generic.FromHTTPRequest(y)
+	resp, err := client.GenericCall(ctx, "", z)
+	//client := studentservice.MustNewClient("StudentService", opts...)
+	//resp, err := client.Register(ctx, &req)
+	response := resp.(*generic.HTTPResponse)
+	c.JSON(consts.StatusOK, response.Body)
 }
 
 // Query .
@@ -55,9 +68,24 @@ func Query(ctx context.Context, c *app.RequestContext) {
 	opts = append(opts, client.WithHostPorts("127.0.0.1:8848"))
 	opts = append(opts, client.WithLongConnection(connpool.IdleConfig{MinIdlePerAddress: 10,
 		MaxIdlePerAddress: 1000}))
-	client := studentservice.MustNewClient("StudentService", opts...)
-	kreq := student2.QueryReq{req.ID}
-	resp, err := client.Query(ctx, &kreq)
+
+	p, err := generic.NewThriftFileProvider("../student.thrift")
+	if err != nil {
+		c.JSON(consts.StatusOK, utils.H{"Message": err.Error()})
+	}
+	g, err := generic.HTTPThriftGeneric(p)
+	if err != nil {
+		c.JSON(consts.StatusOK, utils.H{"Message": err.Error()})
+	}
+	client, err := genericclient.NewClient("StudentService", g, opts...)
+	x := c.GetRequest()
+	y, _ := adaptor.GetCompatRequest(x)
+	z, _ := generic.FromHTTPRequest(y)
+	response, err := client.GenericCall(ctx, "", z)
+	resp := (response.(*generic.HTTPResponse)).Body
+	//client := studentservice.MustNewClient("StudentService", opts...)
+	//kreq := student2.QueryReq{req.ID}
+	//resp, err := client.Query(ctx, &kreq)
 
 	//resp := new(student.Student)
 	if err != nil {
@@ -65,9 +93,5 @@ func Query(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(consts.StatusOK, utils.H{
-		"id":      resp.Id,
-		"name":    resp.Name,
-		"college": resp.College,
-	})
+	c.JSON(consts.StatusOK, resp)
 }
