@@ -1,1 +1,3 @@
-# CloudWeGo 课堂练习代码仓库
+# thrift test
+
+Cloudwego课堂练习
